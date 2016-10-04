@@ -84,8 +84,8 @@ func main() {
 		fmt.Printf("Cluster: %s\n", vargs.Cluster)
 	}
 
-	if vargs.Memory == 0 {
-		vargs.Memory = 128
+	if len(vargs.ContainerName) == 0 {
+		vargs.ContainerName = vargs.Family + "-container"
 	}
 
 	svc := ecs.New(
@@ -110,15 +110,29 @@ func main() {
 
 		Image:        aws.String(Image),
 		Links:        []*string{},
-		Memory:       aws.Int64(vargs.Memory),
 		MountPoints:  []*ecs.MountPoint{},
-		Name:         aws.String(vargs.Family + "-container"),
+		Name:         aws.String(vargs.ContainerName),
 		PortMappings: []*ecs.PortMapping{},
 
 		Ulimits: []*ecs.Ulimit{},
 		//User: aws.String("String"),
 		VolumesFrom: []*ecs.VolumeFrom{},
 		//WorkingDirectory: aws.String("String"),
+	}
+
+	if vargs.CPU != 0 {
+		definition.Cpu = aws.Int64(vargs.CPU)
+	}
+
+	if vargs.Memory == 0 && vargs.MemoryReservation == 0 {
+		definition.MemoryReservation = aws.Int64(128)
+	} else {
+		if vargs.Memory != 0 {
+			definition.Memory = aws.Int64(vargs.Memory)
+		}
+		if vargs.MemoryReservation != 0 {
+			definition.MemoryReservation = aws.Int64(vargs.MemoryReservation)
+		}
 	}
 
 	// Port mappings
@@ -178,6 +192,31 @@ func main() {
 		Service:        aws.String(vargs.Service),
 		TaskDefinition: aws.String(val),
 	}
+
+	if vargs.DesiredCount != 0 {
+		sparams.DesiredCount = aws.Int64(vargs.DesiredCount)
+	}
+
+	cleanedDeploymentConfiguration := strings.Trim(vargs.DeploymentConfiguration, " ")
+	parts := strings.SplitN(cleanedDeploymentConfiguration, " ", 2)
+	minimumHealthyPercent, minimumHealthyPercentError := strconv.ParseInt(parts[0], 10, 64)
+	if minimumHealthyPercentError != nil {
+		fmt.Println(minimumHealthyPercentError.Error())
+		os.Exit(1)
+		return
+	}
+	maximumPercent, maximumPercentErr := strconv.ParseInt(parts[1], 10, 64)
+	if maximumPercentErr != nil {
+		fmt.Println(maximumPercentErr.Error())
+		os.Exit(1)
+		return
+	}
+
+	sparams.DeploymentConfiguration = &ecs.DeploymentConfiguration{
+		MaximumPercent:        aws.Int64(maximumPercent),
+		MinimumHealthyPercent: aws.Int64(minimumHealthyPercent),
+	}
+
 	sresp, serr := svc.UpdateService(sparams)
 
 	if serr != nil {

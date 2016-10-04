@@ -53,6 +53,7 @@ make deps build
         "image_name": "namespace/repo",
         "image_tag": "latest",
         "service": "my-ecs-service",
+        "container_name": "my-container-name",
         "environment_variables": [
             "DATABASE_URI=$$MY_DATABASE_URI"
         ]
@@ -112,13 +113,18 @@ docker run -i plugins/drone-ecs <<EOF
         "image_name": "namespace/repo",
         "image_tag": "latest",
         "service": "my-ecs-service",
+        "container_name": "my-container-name",
         "environment_variables": [
             "DATABASE_URI=$$MY_DATABASE_URI"
         ]
         "port_mappings": [
           "80 9000"
         ],
-        "memory": "128"
+        "memory": "128",
+        "memoryReservation": "128",
+        "cpu": "1024",
+        "desired_count": "1",
+        "deployment_configuration"
     }
 }
 EOF
