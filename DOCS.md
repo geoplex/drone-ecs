@@ -18,6 +18,10 @@ Use this plugin for deploying a docker container application to AWS EC2 Containe
 * `cpu`, Amount of CPU shares to assign to the container, defaults to 1024
 * `desired_count`, Desired number of instances to run
 * `environment_variables` - List of Environment Variables to be passed to the container, format is `NAME=VALUE`
+* `docker_labels` - Optional docker labels`
+* `log_driver` - Log driver`
+* `log_driver_options` - Log driver options`
+* `network_mode` - Container network mode: bridge, host, none. Defaults to bridge`
 
 ## Example
 

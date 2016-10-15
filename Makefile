@@ -1,7 +1,7 @@
 .PHONY: all clean deps fmt vet test docker
 
 EXECUTABLE ?= drone-ecs
-IMAGE ?= clicktripz/$(EXECUTABLE)
+IMAGE ?= headmadepro/$(EXECUTABLE)
 COMMIT ?= $(shell git rev-parse --short HEAD)
 
 LDFLAGS = -X "main.buildCommit=$(COMMIT)"

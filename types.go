@@ -15,10 +15,14 @@ type Params struct {
 	Cluster                 string            `json:"cluster"`
 	ContainerName           string            `json:"container_name"`
 	DeploymentConfiguration string            `json:"deployment_configuration"`
+	NetworkMode             string            `json:"network_mode"`
 	CPU                     int64             `json:"cpu"`
 	DesiredCount            int64             `json:"desired_count"`
 	Memory                  int64             `json:"memory"`
 	MemoryReservation       int64             `json:"memoryReservation"`
 	Environment             drone.StringSlice `json:"environment_variables"`
 	PortMappings            drone.StringSlice `json:"port_mappings"`
+	LogDriver               string            `json:"log_driver"`
+	LogDriverOptions        drone.StringSlice `json:"log_driver_options"`
+	DockerLabels            drone.StringSlice `json:"docker_labels"`
 }

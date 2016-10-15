@@ -135,6 +135,29 @@ func main() {
 		}
 	}
 
+	// DockerLabels
+	for _, label := range vargs.DockerLabels.Slice() {
+		parts := strings.SplitN(label, "=", 2)
+		definition.DockerLabels[strings.Trim(parts[0], " ")] = aws.String(strings.Trim(parts[1], " "))
+	}
+
+	// Log driver
+	if len(vargs.LogDriver) > 0 {
+		definition.LogConfiguration = &ecs.LogConfiguration{}
+		definition.LogConfiguration.LogDriver = aws.String(vargs.LogDriver)
+		definition.LogConfiguration.Options = make(map[string]*string)
+
+		// Log driver options
+		for _, logOption := range vargs.LogDriverOptions.Slice() {
+			cleanedLogOption := strings.Trim(logOption, " ")
+			parts := strings.SplitN(cleanedLogOption, "=", 2)
+			Name := aws.String(strings.Trim(parts[0], " "))
+			Value := aws.String(strings.Trim(parts[1], " "))
+
+			definition.LogConfiguration.Options[*Name] = Value
+		}
+	}
+
 	// Port mappings
 	for _, portMapping := range vargs.PortMappings.Slice() {
 		cleanedPortMapping := strings.Trim(portMapping, " ")
@@ -174,8 +197,9 @@ func main() {
 		ContainerDefinitions: []*ecs.ContainerDefinition{
 			&definition,
 		},
-		Family:  aws.String(vargs.Family),
-		Volumes: []*ecs.Volume{},
+		Family:      aws.String(vargs.Family),
+		Volumes:     []*ecs.Volume{},
+		NetworkMode: aws.String(vargs.NetworkMode),
 	}
 	resp, err := svc.RegisterTaskDefinition(params)
 
@@ -199,22 +223,23 @@ func main() {
 
 	cleanedDeploymentConfiguration := strings.Trim(vargs.DeploymentConfiguration, " ")
 	parts := strings.SplitN(cleanedDeploymentConfiguration, " ", 2)
-	minimumHealthyPercent, minimumHealthyPercentError := strconv.ParseInt(parts[0], 10, 64)
-	if minimumHealthyPercentError != nil {
-		fmt.Println(minimumHealthyPercentError.Error())
-		os.Exit(1)
-		return
-	}
-	maximumPercent, maximumPercentErr := strconv.ParseInt(parts[1], 10, 64)
-	if maximumPercentErr != nil {
-		fmt.Println(maximumPercentErr.Error())
-		os.Exit(1)
-		return
-	}
-
-	sparams.DeploymentConfiguration = &ecs.DeploymentConfiguration{
-		MaximumPercent:        aws.Int64(maximumPercent),
-		MinimumHealthyPercent: aws.Int64(minimumHealthyPercent),
+	if len(parts) == 2 {
+		minimumHealthyPercent, minimumHealthyPercentError := strconv.ParseInt(parts[0], 10, 64)
+		if minimumHealthyPercentError != nil {
+			fmt.Println(minimumHealthyPercentError.Error())
+			os.Exit(1)
+			return
+		}
+		maximumPercent, maximumPercentErr := strconv.ParseInt(parts[1], 10, 64)
+		if maximumPercentErr != nil {
+			fmt.Println(maximumPercentErr.Error())
+			os.Exit(1)
+			return
+		}
+		sparams.DeploymentConfiguration = &ecs.DeploymentConfiguration{
+			MaximumPercent:        aws.Int64(maximumPercent),
+			MinimumHealthyPercent: aws.Int64(minimumHealthyPercent),
+		}
 	}
 
 	sresp, serr := svc.UpdateService(sparams)
