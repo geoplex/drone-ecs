@@ -197,10 +197,14 @@ func main() {
 		ContainerDefinitions: []*ecs.ContainerDefinition{
 			&definition,
 		},
-		Family:      aws.String(vargs.Family),
-		Volumes:     []*ecs.Volume{},
-		NetworkMode: aws.String(vargs.NetworkMode),
+		Family:  aws.String(vargs.Family),
+		Volumes: []*ecs.Volume{},
 	}
+
+	if len(vargs.NetworkMode) > 0 {
+		params.NetworkMode = aws.String(vargs.NetworkMode)
+	}
+
 	resp, err := svc.RegisterTaskDefinition(params)
 
 	if err != nil {
