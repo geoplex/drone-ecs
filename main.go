@@ -60,15 +60,11 @@ func main() {
 		return
 	}
 
-	if len(vargs.Image) == 0 {
-		fmt.Println("Please provide an image name")
+	if len(vargs.ContainerDefinitions) == 0 {
+		fmt.Println("Please provide a container definition")
 
 		os.Exit(1)
 		return
-	}
-
-	if len(vargs.Tag) == 0 {
-		vargs.Tag = "latest"
 	}
 
 	if len(vargs.Service) == 0 {
@@ -84,9 +80,125 @@ func main() {
 		fmt.Printf("Cluster: %s\n", vargs.Cluster)
 	}
 
-	if len(vargs.ContainerName) == 0 {
-		vargs.ContainerName = vargs.Family + "-container"
-	}
+	containerDefinitions := []*ecs.ContainerDefinition{}
+	for _, container := range vargs.ContainerDefinitions[:] {
+
+		if len(container.ContainerName) == 0 {
+			container.ContainerName = vargs.Family + "-container"
+		}
+
+		if len(container.Tag) == 0 {
+			container.Tag = "latest"
+		}
+
+		Image := container.Image + ":" + container.Tag
+
+		definition := ecs.ContainerDefinition{
+			Command: []*string{},
+
+			DnsSearchDomains:      []*string{},
+			DnsServers:            []*string{},
+			DockerLabels:          map[string]*string{},
+			DockerSecurityOptions: []*string{},
+			EntryPoint:            []*string{},
+			Environment:           []*ecs.KeyValuePair{},
+			Essential:             aws.Bool(true),
+			ExtraHosts:            []*ecs.HostEntry{},
+
+			Image:        aws.String(Image),
+			Links:        []*string{},
+			MountPoints:  []*ecs.MountPoint{},
+			Name:         aws.String(container.ContainerName),
+			PortMappings: []*ecs.PortMapping{},
+
+			Ulimits: []*ecs.Ulimit{},
+			//User: aws.String("String"),
+			VolumesFrom: []*ecs.VolumeFrom{},
+			//WorkingDirectory: aws.String("String"),
+		}
+
+		if container.CPU != 0 {
+			definition.Cpu = aws.Int64(container.CPU)
+		}
+
+		if container.Memory == 0 && container.MemoryReservation == 0 {
+			definition.MemoryReservation = aws.Int64(128)
+		} else {
+			if container.Memory != 0 {
+				definition.Memory = aws.Int64(container.Memory)
+			}
+			if container.MemoryReservation != 0 {
+				definition.MemoryReservation = aws.Int64(container.MemoryReservation)
+			}
+		}
+
+		// DockerLabels
+		for _, label := range container.DockerLabels.Slice() {
+			parts := strings.SplitN(label, "=", 2)
+			definition.DockerLabels[strings.Trim(parts[0], " ")] = aws.String(strings.Trim(parts[1], " "))
+		}
+
+		// Links
+		for _, link := range container.Links.Slice() {
+			definition.Links = append(definition.Links, aws.String(strings.Trim(link, " ")))
+		}
+
+		// Log driver
+		if len(container.LogDriver) > 0 {
+			definition.LogConfiguration = &ecs.LogConfiguration{}
+			definition.LogConfiguration.LogDriver = aws.String(container.LogDriver)
+			definition.LogConfiguration.Options = make(map[string]*string)
+
+			// Log driver options
+			for _, logOption := range container.LogDriverOptions.Slice() {
+				cleanedLogOption := strings.Trim(logOption, " ")
+				parts := strings.SplitN(cleanedLogOption, "=", 2)
+				Name := aws.String(strings.Trim(parts[0], " "))
+				Value := aws.String(strings.Trim(parts[1], " "))
+
+				definition.LogConfiguration.Options[*Name] = Value
+			}
+		}
+
+		// Port mappings
+		for _, portMapping := range container.PortMappings.Slice() {
+			cleanedPortMapping := strings.Trim(portMapping, " ")
+			parts := strings.SplitN(cleanedPortMapping, " ", 2)
+			hostPort, hostPortErr := strconv.ParseInt(parts[0], 10, 64)
+			if hostPortErr != nil {
+				fmt.Println(hostPortErr.Error())
+				os.Exit(1)
+				return
+			}
+			containerPort, containerPortError := strconv.ParseInt(parts[1], 10, 64)
+			if containerPortError != nil {
+				fmt.Println(containerPortError.Error())
+				os.Exit(1)
+				return
+			}
+
+			pair := ecs.PortMapping{
+				ContainerPort: aws.Int64(containerPort),
+				HostPort:      aws.Int64(hostPort),
+				Protocol:      aws.String("TransportProtocol"),
+			}
+
+			definition.PortMappings = append(definition.PortMappings, &pair)
+		}
+
+		// Environment variables
+		for _, envVar := range container.Environment.Slice() {
+			parts := strings.SplitN(envVar, "=", 2)
+			pair := ecs.KeyValuePair{
+				Name:  aws.String(strings.Trim(parts[0], " ")),
+				Value: aws.String(strings.Trim(parts[1], " ")),
+			}
+			definition.Environment = append(definition.Environment, &pair)
+		}
+
+		containerDefinitions = append(containerDefinitions, &definition)
+
+	} // container definitions
 
 	svc := ecs.New(
 		session.New(&aws.Config{
@@ -94,111 +206,10 @@ func main() {
 			Credentials: credentials.NewStaticCredentials(vargs.AccessKey, vargs.SecretKey, ""),
 		}))
 
-	Image := vargs.Image + ":" + vargs.Tag
-
-	definition := ecs.ContainerDefinition{
-		Command: []*string{},
-
-		DnsSearchDomains:      []*string{},
-		DnsServers:            []*string{},
-		DockerLabels:          map[string]*string{},
-		DockerSecurityOptions: []*string{},
-		EntryPoint:            []*string{},
-		Environment:           []*ecs.KeyValuePair{},
-		Essential:             aws.Bool(true),
-		ExtraHosts:            []*ecs.HostEntry{},
-
-		Image:        aws.String(Image),
-		Links:        []*string{},
-		MountPoints:  []*ecs.MountPoint{},
-		Name:         aws.String(vargs.ContainerName),
-		PortMappings: []*ecs.PortMapping{},
-
-		Ulimits: []*ecs.Ulimit{},
-		//User: aws.String("String"),
-		VolumesFrom: []*ecs.VolumeFrom{},
-		//WorkingDirectory: aws.String("String"),
-	}
-
-	if vargs.CPU != 0 {
-		definition.Cpu = aws.Int64(vargs.CPU)
-	}
-
-	if vargs.Memory == 0 && vargs.MemoryReservation == 0 {
-		definition.MemoryReservation = aws.Int64(128)
-	} else {
-		if vargs.Memory != 0 {
-			definition.Memory = aws.Int64(vargs.Memory)
-		}
-		if vargs.MemoryReservation != 0 {
-			definition.MemoryReservation = aws.Int64(vargs.MemoryReservation)
-		}
-	}
-
-	// DockerLabels
-	for _, label := range vargs.DockerLabels.Slice() {
-		parts := strings.SplitN(label, "=", 2)
-		definition.DockerLabels[strings.Trim(parts[0], " ")] = aws.String(strings.Trim(parts[1], " "))
-	}
-
-	// Log driver
-	if len(vargs.LogDriver) > 0 {
-		definition.LogConfiguration = &ecs.LogConfiguration{}
-		definition.LogConfiguration.LogDriver = aws.String(vargs.LogDriver)
-		definition.LogConfiguration.Options = make(map[string]*string)
-
-		// Log driver options
-		for _, logOption := range vargs.LogDriverOptions.Slice() {
-			cleanedLogOption := strings.Trim(logOption, " ")
-			parts := strings.SplitN(cleanedLogOption, "=", 2)
-			Name := aws.String(strings.Trim(parts[0], " "))
-			Value := aws.String(strings.Trim(parts[1], " "))
-
-			definition.LogConfiguration.Options[*Name] = Value
-		}
-	}
-
-	// Port mappings
-	for _, portMapping := range vargs.PortMappings.Slice() {
-		cleanedPortMapping := strings.Trim(portMapping, " ")
-		parts := strings.SplitN(cleanedPortMapping, " ", 2)
-		hostPort, hostPortErr := strconv.ParseInt(parts[0], 10, 64)
-		if hostPortErr != nil {
-			fmt.Println(hostPortErr.Error())
-			os.Exit(1)
-			return
-		}
-		containerPort, containerPortError := strconv.ParseInt(parts[1], 10, 64)
-		if containerPortError != nil {
-			fmt.Println(containerPortError.Error())
-			os.Exit(1)
-			return
-		}
-
-		pair := ecs.PortMapping{
-			ContainerPort: aws.Int64(containerPort),
-			HostPort:      aws.Int64(hostPort),
-			Protocol:      aws.String("TransportProtocol"),
-		}
-
-		definition.PortMappings = append(definition.PortMappings, &pair)
-	}
-
-	// Environment variables
-	for _, envVar := range vargs.Environment.Slice() {
-		parts := strings.SplitN(envVar, "=", 2)
-		pair := ecs.KeyValuePair{
-			Name:  aws.String(strings.Trim(parts[0], " ")),
-			Value: aws.String(strings.Trim(parts[1], " ")),
-		}
-		definition.Environment = append(definition.Environment, &pair)
-	}
 	params := &ecs.RegisterTaskDefinitionInput{
-		ContainerDefinitions: []*ecs.ContainerDefinition{
-			&definition,
-		},
-		Family:  aws.String(vargs.Family),
-		Volumes: []*ecs.Volume{},
+		ContainerDefinitions: containerDefinitions,
+		Family:               aws.String(vargs.Family),
+		Volumes:              []*ecs.Volume{},
 	}
 
 	if len(vargs.NetworkMode) > 0 {

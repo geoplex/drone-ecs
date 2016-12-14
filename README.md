@@ -50,17 +50,32 @@ make deps build
         "secret_key": "9c5785d3ece6a9cdefa42eb99b58986f9095ff1c",
         "region": "us-east-1",
         "family": "my-ecs-task",
-        "image_name": "namespace/repo",
-        "image_tag": "latest",
         "service": "my-ecs-service",
-        "container_name": "my-container-name",
-        "environment_variables": [
-            "DATABASE_URI=$$MY_DATABASE_URI"
+        "container_definitions": [
+            {
+                "container_name": "flask"
+                "image_name": "namespace/repo",
+                "image_tag": "latest",
+                "environment_variables": [
+                    "DATABASE_URI=$$MY_DATABASE_URI"
+                ]
+                "memory": "256"
+                "cpu": "512"
+            },
+            {
+                container_name: nginx
+                "image_name": "namespace/repo",
+                "image_tag": "latest",
+                "port_mappings": [
+                    "80 80"
+                ],
+                "memory": "235"
+                "cpu": "512"
+                "links": [
+                    "flask"
+                ]
+            }
         ]
-        "port_mappings": [
-          "80 9000"
-        ],
-        "memory": "128"
     }
 }
 EOF
@@ -105,26 +120,37 @@ docker run -i plugins/drone-ecs <<EOF
         "root": "/drone/src",
         "path": "/drone/src/github.com/drone/drone"
     },
-    "vargs": {
+   "vargs": {
         "access_key": "970d28f4dd477bc184fbd10b376de753",
         "secret_key": "9c5785d3ece6a9cdefa42eb99b58986f9095ff1c",
         "region": "us-east-1",
         "family": "my-ecs-task",
-        "image_name": "namespace/repo",
-        "image_tag": "latest",
         "service": "my-ecs-service",
-        "container_name": "my-container-name",
-        "environment_variables": [
-            "DATABASE_URI=$$MY_DATABASE_URI"
+        "container_definitions": [
+            {
+                "container_name": "flask"
+                "image_name": "namespace/repo",
+                "image_tag": "latest",
+                "environment_variables": [
+                    "DATABASE_URI=$$MY_DATABASE_URI"
+                ]
+                "memory": "256"
+                "cpu": "512"
+            },
+            {
+                container_name: nginx
+                "image_name": "namespace/repo",
+                "image_tag": "latest",
+                "port_mappings": [
+                    "80 80"
+                ],
+                "memory": "235"
+                "cpu": "512"
+                "links": [
+                    "flask"
+                ]
+            }
         ]
-        "port_mappings": [
-          "80 9000"
-        ],
-        "memory": "128",
-        "memoryReservation": "128",
-        "cpu": "1024",
-        "desired_count": "1",
-        "deployment_configuration"
     }
 }
 EOF
